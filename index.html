@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quiz — trivia night for everyone in the room</title>
+  <meta name="description" content="Host a live trivia quiz for a room full of people, with questions written by AI on any topic. Players join from their phones; it all runs peer to peer in your browsers.">
+  <meta name="color-scheme" content="light">
+  <script>try { const s = localStorage.getItem('quiz-scheme'); if (s === 'dark' || s === 'light dark') document.querySelector('meta[name="color-scheme"]').content = s; } catch {}</script>
+  <meta name="theme-color" content="#f6f2ff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#150f2b" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));</script>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./vendor/peerjs.min.js" defer></script>
+  <script src="./vendor/qrcode.js" defer></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="blobs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="floaters" aria-hidden="true"><span>?</span><span>★</span><span>!</span><span>?</span><span>✦</span><span>?</span></div>
+
+  <!-- ───────────── Home ───────────── -->
+  <main id="home" class="screen page">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <a class="brand" href="./">
+          <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+            <path class="logo-a" d="M19 4a15 15 0 1 1-9.4 26.7L4 33l1.9-6A15 15 0 0 1 19 4z"/>
+            <path class="logo-q" d="M14.6 15.4a4.6 4.6 0 1 1 6.6 4.1c-1.4.7-2.2 1.7-2.2 3.2v.8"/>
+            <circle class="logo-dot" cx="19" cy="27.6" r="1.9"/>
+            <path class="logo-star" d="M33.5 2.5l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2L29 7l3.2-1.3z"/>
+          </svg>
+          <span>Quiz</span>
+        </a>
+        <p class="credit"><span data-i18n-link="credit">Made with ❤️ by <a href="https://mco.dev/">Marc</a></span><a class="apps-link" href="https://mco.dev/apps/"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg><span data-i18n="nav.apps">All apps</span></a></p>
+      </div>
+      <button class="icon-btn" type="button" command="show-modal" commandfor="settings" data-i18n-label="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4.5v5M6 14.5v5"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </header>
+
+    <div class="hero">
+      <section class="pitch">
+        <p class="stickers" aria-hidden="true"><span>🧠</span><span>🏆</span><span>⏱️</span><span>🎉</span></p>
+        <h1 id="home-title" tabindex="-1" data-i18n="tagline">Trivia night for everyone in the room.</h1>
+        <p class="sub" data-i18n="sub">Pick any topic and AI writes the questions. Everyone plays on their phone while the big screen shows the questions, the answers and the leaderboard.</p>
+      </section>
+
+      <div class="start-cards">
+        <form class="card join-card" id="join-form">
+          <h2 data-i18n="join.title">Join a game</h2>
+          <label class="field">
+            <span data-i18n="join.code">Game code</span>
+            <input id="join-code" class="code-input" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="abc-123" required>
+          </label>
+          <button class="btn primary big" type="submit"><span data-i18n="join.go">Join</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </form>
+
+        <section class="card host-card" aria-labelledby="host-title">
+          <h2 id="host-title" data-i18n="host.title">Host a quiz</h2>
+          <p class="help" data-i18n="host.help">Run the quiz from a laptop or a TV. Players join with a code or by scanning a QR code.</p>
+          <button class="btn big sunny" type="button" id="go-library"><span aria-hidden="true">🎤</span><span data-i18n="host.go">My quizzes</span></button>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- ───────────── Player: name and avatar ───────────── -->
+  <main id="profile" class="screen page narrow" hidden>
+    <header class="bar">
+      <button class="icon-btn" type="button" data-back="home" data-i18n-label="back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 id="profile-title" tabindex="-1" data-i18n="profile.title">Who's playing?</h1>
+    </header>
+    <form class="card" id="profile-form">
+      <p class="code-chip"><span data-i18n="profile.game">Game</span> <strong id="profile-code"></strong></p>
+      <label class="field">
+        <span data-i18n="profile.name">Your name</span>
+        <input id="player-name" type="text" maxlength="20" autocomplete="nickname" required data-i18n-placeholder="profile.placeholder" placeholder="What should we call you?">
+      </label>
+      <fieldset class="field">
+        <legend data-i18n="profile.avatar">Pick a buddy</legend>
+        <div class="avatars" id="avatars"></div>
+      </fieldset>
+      <p class="error" id="profile-error" role="alert" hidden></p>
+      <button class="btn primary big" type="submit" id="profile-go"><span data-i18n="profile.go">Let's play!</span></button>
+    </form>
+  </main>
+
+  <!-- ───────────── Host: library ───────────── -->
+  <main id="library" class="screen page" hidden>
+    <header class="bar">
+      <button class="icon-btn" type="button" data-back="home" data-i18n-label="back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 id="library-title" tabindex="-1" data-i18n="library.title">My quizzes</h1>
+      <span class="spacer"></span>
+      <button class="icon-btn" type="button" command="show-modal" commandfor="settings" data-i18n-label="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4.5v5M6 14.5v5"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </header>
+    <div class="library-actions">
+      <button class="btn primary" type="button" id="new-ai"><span aria-hidden="true">✨</span><span data-i18n="library.ai">Create with AI</span></button>
+      <button class="btn" type="button" id="new-blank"><span aria-hidden="true">✏️</span><span data-i18n="library.blank">Write my own</span></button>
+      <label class="btn ghost file-btn"><span aria-hidden="true">📥</span><span data-i18n="library.import">Import</span><input type="file" id="import-file" accept=".json,application/json"></label>
+    </div>
+    <ul class="quiz-grid" id="quiz-grid"></ul>
+    <p class="empty" id="library-empty" hidden data-i18n="library.empty">No quizzes yet. Create one with AI or write your own.</p>
+  </main>
+
+  <!-- ───────────── Host: create with AI ───────────── -->
+  <main id="create" class="screen page narrow" hidden>
+    <header class="bar">
+      <button class="icon-btn" type="button" data-back="library" data-i18n-label="back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 id="create-title" tabindex="-1" data-i18n="create.title">Create with AI</h1>
+    </header>
+    <form class="card" id="create-form">
+      <label class="field">
+        <span data-i18n="create.topic">Topic</span>
+        <input id="topic" type="text" maxlength="120" required data-i18n-placeholder="create.topicPlaceholder" placeholder="Anything at all: 80s movies, volcanoes, Paris…">
+      </label>
+      <div class="topic-ideas" id="topic-ideas" aria-label="Ideas"></div>
+      <fieldset class="field">
+        <legend data-i18n="create.difficulty">Difficulty</legend>
+        <div class="segmented three">
+          <label><input type="radio" name="difficulty" value="easy"><span data-i18n="diff.easy">Easy</span></label>
+          <label><input type="radio" name="difficulty" value="medium"><span data-i18n="diff.medium">Medium</span></label>
+          <label><input type="radio" name="difficulty" value="hard"><span data-i18n="diff.hard">Hard</span></label>
+        </div>
+      </fieldset>
+      <label class="field">
+        <span><span data-i18n="create.count">Questions</span>: <output id="count-out" for="count">10</output></span>
+        <input id="count" type="range" min="3" max="20" step="1" value="10">
+      </label>
+      <fieldset class="field">
+        <legend data-i18n="create.lang">Quiz language</legend>
+        <div class="chips" id="quiz-lang"></div>
+      </fieldset>
+      <label class="switch-row">
+        <input id="check" type="checkbox">
+        <span><span data-i18n="create.check">Double-check the answers</span><small class="help" data-i18n="create.checkHelp">A second pass flags questions that might be wrong.</small></span>
+      </label>
+      <button class="pill-status" id="key-pill" type="button" command="show-modal" commandfor="settings">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="key-pill-text">Add an Anthropic key to create quizzes</span>
+      </button>
+      <p class="error" id="create-error" role="alert" hidden></p>
+      <button class="btn primary big" type="submit" id="generate"><span aria-hidden="true">✨</span><span data-i18n="create.go">Write my quiz</span></button>
+    </form>
+    <div class="thinking" id="thinking" hidden role="status">
+      <div class="thinking-orbit" aria-hidden="true"><span>?</span><span>!</span><span>★</span></div>
+      <p id="thinking-text" data-i18n="create.writing">Writing your questions…</p>
+    </div>
+  </main>
+
+  <!-- ───────────── Host: edit a quiz ───────────── -->
+  <main id="editor" class="screen page narrow" hidden>
+    <header class="bar">
+      <button class="icon-btn" type="button" id="editor-back" data-i18n-label="back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 id="editor-heading" tabindex="-1" data-i18n="editor.title">Edit quiz</h1>
+    </header>
+    <form id="editor-form" class="editor">
+      <div class="card editor-head">
+        <label class="field emoji-field">
+          <span data-i18n="editor.emoji">Emoji</span>
+          <input id="quiz-emoji" type="text" maxlength="8" required>
+        </label>
+        <label class="field">
+          <span data-i18n="editor.name">Name</span>
+          <input id="quiz-title" type="text" maxlength="60" required>
+        </label>
+      </div>
+      <p class="flag-note" id="flag-note" hidden></p>
+      <ol class="questions" id="questions"></ol>
+      <div class="editor-foot">
+        <button class="btn" type="button" id="add-question"><span aria-hidden="true">➕</span><span data-i18n="editor.add">Add a question</span></button>
+        <button class="btn" type="button" id="add-ai" hidden><span aria-hidden="true">✨</span><span data-i18n="editor.addAi">Add one with AI</span></button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit"><span data-i18n="editor.save">Save quiz</span></button>
+      </div>
+    </form>
+  </main>
+
+  <!-- ───────────── Host: game options ───────────── -->
+  <main id="setup" class="screen page narrow" hidden>
+    <header class="bar">
+      <button class="icon-btn" type="button" data-back="library" data-i18n-label="back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <h1 id="setup-heading" tabindex="-1" data-i18n="setup.title">Host this quiz</h1>
+    </header>
+    <form class="card" id="setup-form">
+      <div class="setup-quiz"><span class="big-emoji" id="setup-emoji"></span><div><h2 id="setup-name"></h2><p class="help" id="setup-meta"></p></div></div>
+      <fieldset class="field">
+        <legend data-i18n="setup.mode">How do people play?</legend>
+        <div class="mode-pick">
+          <label><input type="radio" name="mode" value="live"><span><b data-i18n="mode.live">Together, live</b><small data-i18n="mode.liveHelp">Everyone sees each question at the same time. You move things along from the big screen.</small></span></label>
+          <label><input type="radio" name="mode" value="self"><span><b data-i18n="mode.self">At their own pace</b><small data-i18n="mode.selfHelp">Players start when they join and go through the questions on their own. Keep this page open until they're done.</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="field">
+        <legend data-i18n="setup.seconds">Time for each question</legend>
+        <div class="chips" id="seconds"></div>
+      </fieldset>
+      <label class="switch-row"><input id="shuffle-q" type="checkbox"><span data-i18n="setup.shuffleQ">Shuffle the questions</span></label>
+      <label class="switch-row"><input id="shuffle-a" type="checkbox"><span data-i18n="setup.shuffleA">Shuffle the answers</span></label>
+      <p class="error" id="setup-error" role="alert" hidden></p>
+      <button class="btn primary big" type="submit" id="open-room"><span aria-hidden="true">🚪</span><span data-i18n="setup.go">Open the room</span></button>
+    </form>
+  </main>
+
+  <!-- ───────────── Host: the big screen ───────────── -->
+  <main id="stage" class="screen stage" hidden>
+    <header class="stage-bar">
+      <p class="stage-quiz"><span id="stage-emoji" aria-hidden="true"></span><span id="stage-name"></span></p>
+      <p class="chip-row">
+        <span class="chip"><span data-i18n="stage.code">Code</span> <strong id="stage-code"></strong></span>
+        <span class="chip"><span aria-hidden="true">👥</span> <span id="stage-count">0</span></span>
+      </p>
+      <span class="spacer"></span>
+      <button class="icon-btn small" type="button" id="stage-sound" aria-pressed="true" data-i18n-label="settings.sound" aria-label="Sounds"><svg class="on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5"/></svg></button>
+      <button class="btn small ghost" type="button" id="stage-end" data-i18n="stage.end">End</button>
+    </header>
+
+    <!-- Lobby -->
+    <section class="phase lobby" id="h-lobby" hidden>
+      <div class="lobby-join">
+        <p class="lobby-how" data-i18n="lobby.how">Join on your phone at</p>
+        <p class="lobby-url" id="lobby-url"></p>
+        <p class="lobby-code-label" data-i18n="lobby.with">with the code</p>
+        <p class="lobby-code" id="lobby-code"></p>
+        <div class="copy-row">
+          <button class="btn small" type="button" id="copy-link"><span aria-hidden="true">🔗</span><span data-i18n="lobby.copy">Copy link</span></button>
+          <span class="tip" id="copy-tip" role="status"></span>
+        </div>
+      </div>
+      <div class="qr" id="qr" role="img" data-i18n-label="lobby.qr" aria-label="QR code to join"></div>
+      <div class="lobby-players">
+        <h2 id="lobby-heading" tabindex="-1"><span data-i18n="lobby.players">Players</span> <span class="count-badge" id="lobby-count">0</span></h2>
+        <ul class="player-chips" id="lobby-players" aria-live="polite"></ul>
+        <p class="waiting" id="lobby-waiting"><span class="pulse" aria-hidden="true"></span><span data-i18n="lobby.waiting">Waiting for players…</span></p>
+        <p class="help" id="lobby-kick-help" data-i18n="lobby.kickHelp">Tap a player to remove them.</p>
+      </div>
+      <div class="lobby-go">
+        <button class="btn primary big" type="button" id="start-game"><span aria-hidden="true">🚀</span><span data-i18n="lobby.start">Start the quiz</span></button>
+      </div>
+    </section>
+
+    <!-- 3, 2, 1 -->
+    <section class="phase countdown" id="h-count" hidden>
+      <p class="count-title" id="h-count-title"></p>
+      <p class="count-num" id="h-count-num" aria-live="assertive"></p>
+    </section>
+
+    <!-- Question and reveal -->
+    <section class="phase question" id="h-question" hidden>
+      <div class="q-top">
+        <p class="q-num" id="h-q-num"></p>
+        <div class="timer" id="h-timer" role="timer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="timer-track" cx="50" cy="50" r="44"/><circle class="timer-fill" id="h-timer-fill" cx="50" cy="50" r="44" pathLength="100"/></svg><span id="h-timer-text"></span></div>
+        <p class="q-answered"><strong id="h-answered">0</strong> <span data-i18n="stage.answered">answered</span></p>
+      </div>
+      <h2 class="q-text" id="h-q-text" tabindex="-1"></h2>
+      <ol class="tiles big-tiles" id="h-tiles" data-stagger></ol>
+      <div class="q-actions">
+        <button class="btn" type="button" id="h-skip" data-i18n="stage.stop">Stop the timer</button>
+        <button class="btn primary" type="button" id="h-next" hidden><span id="h-next-label"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section class="phase board" id="h-board" hidden>
+      <h2 class="board-title" id="h-board-title" tabindex="-1" data-i18n="board.title">Leaderboard</h2>
+      <ol class="ranking" id="h-ranking"></ol>
+      <div class="q-actions"><button class="btn primary" type="button" id="h-board-next"><span data-i18n="board.next">Next question</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+    </section>
+
+    <!-- Final results -->
+    <section class="phase final" id="h-final" hidden>
+      <h2 class="board-title" id="h-final-title" tabindex="-1" data-i18n="final.title">And the winner is…</h2>
+      <ol class="podium" id="h-podium"></ol>
+      <ol class="ranking compact" id="h-final-list"></ol>
+      <div class="q-actions">
+        <button class="btn" type="button" id="h-again"><span aria-hidden="true">🔁</span><span data-i18n="final.again">Play again</span></button>
+        <button class="btn primary" type="button" id="h-done"><span data-i18n="final.done">Close the room</span></button>
+      </div>
+    </section>
+
+    <!-- At their own pace: live progress -->
+    <section class="phase dash" id="h-dash" hidden>
+      <div class="dash-join">
+        <div class="qr small" id="qr-dash" role="img" data-i18n-label="lobby.qr" aria-label="QR code to join"></div>
+        <div><p class="lobby-how" data-i18n="lobby.how">Join on your phone at</p><p class="lobby-url" id="dash-url"></p><p class="lobby-code small" id="dash-code"></p></div>
+      </div>
+      <h2 class="board-title" id="h-dash-title" tabindex="-1" data-i18n="dash.title">Live scores</h2>
+      <ol class="ranking dash-list" id="h-dash-list"></ol>
+      <p class="waiting" id="dash-waiting"><span class="pulse" aria-hidden="true"></span><span data-i18n="lobby.waiting">Waiting for players…</span></p>
+      <div class="q-actions"><button class="btn primary" type="button" id="h-dash-end"><span aria-hidden="true">🏁</span><span data-i18n="dash.end">Finish and show the winners</span></button></div>
+    </section>
+  </main>
+
+  <!-- ───────────── Player: their phone ───────────── -->
+  <main id="play" class="screen play" hidden>
+    <header class="play-bar">
+      <p class="me"><span class="me-avatar" id="me-avatar" aria-hidden="true"></span><span id="me-name"></span></p>
+      <p class="chip score-chip"><span aria-hidden="true">⭐</span> <span id="me-score">0</span></p>
+    </header>
+
+    <section class="phase p-wait" id="p-wait" hidden>
+      <p class="hop" id="p-wait-avatar" aria-hidden="true"></p>
+      <h2 id="p-wait-title" tabindex="-1" data-i18n="p.in">You're in!</h2>
+      <p class="p-quiz" id="p-wait-quiz"></p>
+      <p class="waiting"><span class="pulse" aria-hidden="true"></span><span id="p-wait-text" data-i18n="p.waitHost">Waiting for the host to start…</span></p>
+    </section>
+
+    <section class="phase countdown" id="p-count" hidden>
+      <p class="count-title" id="p-count-title"></p>
+      <p class="count-num" id="p-count-num" aria-live="assertive"></p>
+    </section>
+
+    <section class="phase p-question" id="p-question" hidden>
+      <div class="p-q-top"><p class="q-num" id="p-q-num"></p><div class="bar-timer" aria-hidden="true"><i id="p-timer"></i></div></div>
+      <h2 class="q-text" id="p-q-text" tabindex="-1"></h2>
+      <div class="tiles answer-buttons" id="p-tiles" role="group" data-stagger></div>
+    </section>
+
+    <section class="phase p-locked" id="p-locked" hidden>
+      <p class="spin-emoji" aria-hidden="true">🤞</p>
+      <h2 id="p-locked-title" tabindex="-1" data-i18n="p.locked">Locked in!</h2>
+      <p class="help" data-i18n="p.lockedHelp">Let's see if you got it…</p>
+    </section>
+
+    <section class="phase p-result" id="p-result" hidden>
+      <p class="result-icon" id="p-result-icon" aria-hidden="true"></p>
+      <h2 id="p-result-title" tabindex="-1"></h2>
+      <p class="gain" id="p-gain"></p>
+      <p class="streak" id="p-streak" hidden></p>
+      <p class="right-answer" id="p-right" hidden></p>
+      <p class="rank-line" id="p-rank"></p>
+      <button class="btn primary big" type="button" id="p-next" hidden><span data-i18n="p.next">Next question</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </section>
+
+    <section class="phase p-board" id="p-board" hidden>
+      <p class="rank-big" id="p-board-rank"></p>
+      <h2 id="p-board-title" tabindex="-1"></h2>
+      <p class="help" id="p-board-help"></p>
+    </section>
+
+    <section class="phase p-final" id="p-final" hidden>
+      <p class="medal" id="p-medal" aria-hidden="true"></p>
+      <h2 id="p-final-title" tabindex="-1"></h2>
+      <p class="final-score" id="p-final-score"></p>
+      <ol class="mini-podium" id="p-podium"></ol>
+      <p class="help" id="p-final-help"></p>
+      <button class="btn big" type="button" id="p-leave"><span data-i18n="p.leave">Done</span></button>
+    </section>
+
+    <section class="phase p-ended" id="p-ended" hidden>
+      <p class="spin-emoji" aria-hidden="true">🔌</p>
+      <h2 id="p-ended-title" tabindex="-1"></h2>
+      <p class="help" id="p-ended-help"></p>
+      <button class="btn primary big" type="button" id="p-rejoin"><span data-i18n="p.rejoin">Try again</span></button>
+      <button class="btn ghost" type="button" id="p-home"><span data-i18n="p.home">Back to the start</span></button>
+    </section>
+  </main>
+
+  <footer class="copyright">© 2026 Marc Cohen</footer>
+
+  <!-- ───────────── Settings ───────────── -->
+  <dialog id="settings" class="sheet" aria-labelledby="settings-title" closedby="any">
+    <h2 id="settings-title" data-i18n="settings">Settings</h2>
+
+    <fieldset class="field">
+      <legend data-i18n="settings.lang">Language</legend>
+      <div class="chips" id="ui-lang"></div>
+    </fieldset>
+
+    <label class="field" for="api-key">
+      <span data-i18n="settings.key">Anthropic API key</span>
+    </label>
+    <div class="key-row">
+      <input id="api-key" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="sk-ant-…">
+      <button class="btn small ghost" type="button" id="toggle-key" data-i18n="settings.show">Show</button>
+    </div>
+    <p class="help"><span data-i18n="settings.keyHelp">Only the host needs a key, to create quizzes with AI. It is kept in this browser and sent only to Anthropic.</span>
+      <a id="key-link" href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener" data-i18n="settings.getKey">Get a key</a></p>
+
+    <label class="switch-row">
+      <input id="sound-on" type="checkbox">
+      <span data-i18n="settings.sound">Sounds</span>
+    </label>
+
+    <fieldset class="field scheme-pick">
+      <legend data-i18n="settings.appearance">Appearance</legend>
+      <div class="segmented three"><label><input type="radio" name="scheme" value="light dark"><span data-i18n="settings.system">System</span></label><label><input type="radio" name="scheme" value="light"><span data-i18n="settings.light">Light</span></label><label><input type="radio" name="scheme" value="dark"><span data-i18n="settings.dark">Dark</span></label></div>
+    </fieldset>
+
+    <div class="forget">
+      <button class="btn small ghost danger-text" type="button" id="forget" data-i18n="settings.forget">Forget everything</button>
+      <p class="help" data-i18n="settings.forgetHelp">Erases your quizzes, your name and your key from this browser.</p>
+    </div>
+
+    <form method="dialog" class="sheet-actions">
+      <button class="btn primary" value="done" data-i18n="settings.done" autofocus>Done</button>
+    </form>
+  </dialog>
+
+  <!-- ───────────── Are you sure? ───────────── -->
+  <dialog id="confirm" class="sheet" aria-labelledby="confirm-title" closedby="any">
+    <h2 id="confirm-title"></h2>
+    <p class="help" id="confirm-text"></p>
+    <form method="dialog" class="sheet-actions">
+      <button class="btn ghost" value="" autofocus data-i18n="cancel">Cancel</button>
+      <button class="btn primary danger" value="yes" id="confirm-yes"></button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>
